@@ -1,0 +1,59 @@
+from .. import loader, utils
+from telethon.tl.types import Message
+import asyncio
+
+@loader.tds
+class MaweiFarmHikkaMod(loader.Module):
+    """Авто-фарм для бота Mawei (@MaweiTG_Bot) без конфликтов с HikkaConfig"""
+    strings = {"name": "MaweiFarmHikka"}
+
+    async def client_ready(self, client, db):
+        self.client = client
+        self.db = db
+        self.active = self.db.get("MaweiFarmHikka", "status", False)
+
+    @loader.command()
+    async def mawei(self, message: Message):
+        """Включить/выключить авто-фарм Mawei"""
+        self.active = not self.active
+        self.db.set("MaweiFarmHikka", "status", self.active)
+        state = "✅ ВКЛЮЧЕН" if self.active else "❌ ВЫКЛЮЧЕН"
+        await utils.answer(
+            message,
+            f"<b>[MaweiFarm]</b> Статус: {state}\n"
+            "<i>Нажми кнопку 'Копать' в боте один раз, чтобы запустить цикл.</i>"
+        )
+
+    @loader.watcher(only_messages=True, chats=["MaweiTG_Bot"])
+    async def watcher(self, message: Message):
+        if not self.active:
+            return
+
+        if not getattr(message, "buttons", None):
+            return
+
+        for row in message.buttons:
+            for button in row:
+                text = getattr(button, "text", "")
+                
+                if "Копать" in text:
+                    await asyncio.sleep(3)
+                    try:
+                        await message.click(button)
+                        return
+                    except Exception:
+                        continue
+
+                if "Открыть" in text or "Кейс" in text:
+                    await asyncio.sleep(2)
+                    try:
+                        await message.click(button)
+                        return
+                    except Exception:
+                        continue
+
+    @loader.command()
+    async def mstats(self, message: Message):
+        """Проверить, работает ли скрипт"""
+        state = "✅ Работает" if self.active else "❌ Спит"
+        await utils.answer(message, f"<b>[MaweiFarm]</b> Текущее состояние: {state}")
